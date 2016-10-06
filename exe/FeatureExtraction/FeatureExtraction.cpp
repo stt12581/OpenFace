@@ -244,7 +244,7 @@ int main (int argc, char **argv)
 
 	// Some initial parameters that can be overriden from command line	
 	vector<string> input_files, depth_directories, output_files, tracked_videos_output;
-	
+
 	LandmarkDetector::FaceModelParameters det_parameters(arguments);
 	// Always track gaze in feature extraction
 	det_parameters.track_gaze = true;
@@ -257,6 +257,7 @@ int main (int argc, char **argv)
 	LandmarkDetector::get_video_input_output_params(input_files, depth_directories, output_files, tracked_videos_output, use_world_coordinates, output_codec, arguments);
 
 	bool video_input = true;
+        bool realTimeVid = false;
 	bool verbose = true;
 	bool images_as_video = false;
 
@@ -425,6 +426,16 @@ int main (int argc, char **argv)
 					fps_vid_in = 30;
 				}
 			}
+                        else
+                        {
+                            realTimeVid = true;
+                            INFO_STREAM( "Attempting to capture from device: " << d );
+                            video_capture = cv::VideoCapture( d );
+ 
+                            // Read a first frame often empty in camera
+                            cv::Mat captured_image;
+                            video_capture >> captured_image;
+                        }
 
 			if (!video_capture.isOpened())
 			{
@@ -489,12 +500,19 @@ int main (int argc, char **argv)
 
 		// saving the videos
 		cv::VideoWriter writerFace;
+                
 		if(!tracked_videos_output.empty())
 		{
 			try
-			{
-				writerFace = cv::VideoWriter(tracked_videos_output[f_n], CV_FOURCC(output_codec[0],output_codec[1],output_codec[2],output_codec[3]), fps_vid_in, captured_image.size(), true);
-			}
+			{       if (realTimeVid)
+                                {
+					writerFace = cv::VideoWriter(tracked_videos_output[f_n], CV_FOURCC(output_codec[0],output_codec[1],output_codec[2],output_codec[3]), 20, captured_image.size(), true);
+			        }
+                                else
+                                {
+                                	writerFace = cv::VideoWriter(tracked_videos_output[f_n], CV_FOURCC(output_codec[0],output_codec[1],output_codec[2],output_codec[3]), fps_vid_in, captured_image.size(),      true);
+                                } 
+                        }
 			catch(cv::Exception e)
 			{
 				WARN_STREAM( "Could not open VideoWriter, OUTPUT FILE WILL NOT BE WRITTEN. Currently using codec " << output_codec << ", try using an other one (-oc option)");
