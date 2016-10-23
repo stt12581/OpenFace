@@ -1,11 +1,13 @@
+cmake_minimum_required(VERSION 2.8)
+
 #TBB library
 include_directories(${TBB_ROOT_DIR}/include)
+include_directories(${Boost_INCLUDE_DIR})
 
 add_executable(FeatureExtraction FeatureExtraction.cpp)
 
 # Local libraries
 include_directories(${LandmarkDetector_SOURCE_DIR}/include)
-
 include_directories(../../lib/local/LandmarkDetector/include)
 include_directories(../../lib/local/FaceAnalyser/include)		
 

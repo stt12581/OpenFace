@@ -1044,6 +1044,7 @@ void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, boo
 				if (au_name.compare(au_reg.first) == 0)
 				{
 					*output_file << ", " << au_reg.second;
+                                        cout << ", " <<au_reg.second;
 					break;
 				}
 			}
