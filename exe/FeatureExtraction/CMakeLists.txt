@@ -14,5 +14,10 @@ include_directories(../../lib/local/FaceAnalyser/include)
 target_link_libraries(FeatureExtraction LandmarkDetector)
 target_link_libraries(FeatureExtraction FaceAnalyser)
 target_link_libraries(FeatureExtraction dlib)
-
 target_link_libraries(FeatureExtraction ${OpenCV_LIBS} ${Boost_LIBRARIES} ${TBB_LIBRARIES})
+
+
+#add_executable(TrainModel TrainModel.cpp svm.cpp)
+#link_directories(~/libpca/lib)
+#include_directories(~/libpca/include)
+#target_link_libraries(TrainModel pca)
