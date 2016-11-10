@@ -81,6 +81,9 @@
 #include <FaceAnalyser.h>
 #include <GazeEstimation.h>
 
+#include "pca.h"
+#include "svm.h"
+
 
 #define INFO_STREAM( stream ) \
 std::cout << stream << std::endl
@@ -90,6 +93,21 @@ std::cout << "Warning: " << stream << std::endl
 
 #define ERROR_STREAM( stream ) \
 std::cout << "Error: " << stream << std::endl
+
+#define TOTAL_AU 35
+#define Dimension 3
+#define realTimePredict 0
+/* For the age-well demo. Use an extra variable predictX */
+#define DEMO 0
+#define HOGCompute 1
+
+stats::pca pca_E(TOTAL_AU);
+stats::pca pca_P(TOTAL_AU);
+stats::pca pca_A(TOTAL_AU);
+struct svm_model *model_E;
+struct svm_model *model_P;
+struct svm_model *model_A;
+struct svm_model *model_Demo;
 
 static void printErrorAndAbort( const std::string & error )
 {
@@ -228,17 +246,29 @@ void prepareOutputFile(std::ofstream* output_file, bool output_2D_landmarks, boo
 	int num_landmarks, int num_model_modes, vector<string> au_names_class, vector<string> au_names_reg);
 
 // Output all of the information into one file in one go (quite a few parameters, but simplifies the flow)
-void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, bool output_3D_landmarks,
+void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool output_2D_landmarks, bool output_3D_landmarks,
 	bool output_model_params, bool output_pose, bool output_AUs, bool output_gaze,
 	const LandmarkDetector::CLNF& face_model, int frame_count, double time_stamp, bool detection_success,
 	cv::Point3f gazeDirection0, cv::Point3f gazeDirection1, const cv::Vec6d& pose_estimate, double fx, double fy, double cx, double cy,
-	const FaceAnalysis::FaceAnalyser& face_analyser);
+	const FaceAnalysis::FaceAnalyser& face_analyser, int& emotion);
 
 void post_process_output_file(FaceAnalysis::FaceAnalyser& face_analyser, string output_file, bool dynamic);
 
 
 int main (int argc, char **argv)
 {
+	if (realTimePredict) { //change!!
+		pca_E.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel");
+		pca_P.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel_P");
+		pca_A.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel_A");
+	    model_E = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/SVMModel");
+	    model_P = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/SVMModel_P");
+    	model_A = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/SVMModel_A");
+	}
+
+	if (DEMO) {
+		model_Demo = svm_load_model("/home/z4shang/Documents/OpenFace/exe/testNoPCA/SVMModel_Demo");
+	}
 
 	vector<string> arguments = get_arguments(argc, argv);
 
@@ -257,7 +287,7 @@ int main (int argc, char **argv)
 	LandmarkDetector::get_video_input_output_params(input_files, depth_directories, output_files, tracked_videos_output, use_world_coordinates, output_codec, arguments);
 
 	bool video_input = true;
-        bool realTimeVid = false;
+    bool realTimeVid = false;
 	bool verbose = true;
 	bool images_as_video = false;
 
@@ -391,7 +421,7 @@ int main (int argc, char **argv)
 		string current_file;
 		
 		cv::VideoCapture video_capture;
-		
+
 		cv::Mat captured_image;
 		int total_frames = -1;
 		int reported_completion = 0;
@@ -417,7 +447,7 @@ int main (int argc, char **argv)
 				INFO_STREAM( "Attempting to read from file: " << current_file );
 				video_capture = cv::VideoCapture( current_file );
 				total_frames = (int)video_capture.get(CV_CAP_PROP_FRAME_COUNT);
-				fps_vid_in = video_capture.get(CV_CAP_PROP_FPS);
+				fps_vid_in = video_capture.get(CV_CAP_PROP_FPS);   // change fps ****!!
 
 				// Check if fps is nan or less than 0
 				if (fps_vid_in != fps_vid_in || fps_vid_in <= 0)
@@ -426,16 +456,16 @@ int main (int argc, char **argv)
 					fps_vid_in = 30;
 				}
 			}
-                        else
-                        {
-                            realTimeVid = true;
-                            INFO_STREAM( "Attempting to capture from device: " << d );
-                            video_capture = cv::VideoCapture( d );
+            else
+            {
+            realTimeVid = true;
+            INFO_STREAM( "Attempting to capture from device: " << d );
+            video_capture = cv::VideoCapture( d );
  
-                            // Read a first frame often empty in camera
-                            cv::Mat captured_image;
-                            video_capture >> captured_image;
-                        }
+            // Read a first frame often empty in camera
+            cv::Mat captured_image;
+            video_capture >> captured_image;
+            }
 
 			if (!video_capture.isOpened())
 			{
@@ -504,21 +534,18 @@ int main (int argc, char **argv)
 		if(!tracked_videos_output.empty())
 		{
 			try
-			{       if (realTimeVid)
-                                {
+			{     
+				/* Realtime Recording */  
+				if (realTimeVid) {
 					writerFace = cv::VideoWriter(tracked_videos_output[f_n], CV_FOURCC(output_codec[0],output_codec[1],output_codec[2],output_codec[3]), 20, captured_image.size(), true);
-			        }
-                                else
-                                {
-                                	writerFace = cv::VideoWriter(tracked_videos_output[f_n], CV_FOURCC(output_codec[0],output_codec[1],output_codec[2],output_codec[3]), fps_vid_in, captured_image.size(),      true);
-                                } 
-                        }
+		        }  else {
+                    writerFace = cv::VideoWriter(tracked_videos_output[f_n], CV_FOURCC(output_codec[0],output_codec[1],output_codec[2],output_codec[3]), fps_vid_in, captured_image.size(),      true);
+                } 
+            }
 			catch(cv::Exception e)
 			{
 				WARN_STREAM( "Could not open VideoWriter, OUTPUT FILE WILL NOT BE WRITTEN. Currently using codec " << output_codec << ", try using an other one (-oc option)");
 			}
-
-			
 		}
 
 		int frame_count = 0;
@@ -662,9 +689,10 @@ int main (int argc, char **argv)
 			visualise_tracking(captured_image, face_model, det_parameters, gazeDirection0, gazeDirection1, frame_count, fx, fy, cx, cy);
 
 			// Output the landmarks, pose, gaze, parameters and AUs
-			outputAllFeatures(&output_file, output_2D_landmarks, output_3D_landmarks, output_model_params, output_pose, output_AUs, output_gaze,
+			int emotion;
+			outputAllFeatures(captured_image, &output_file, output_2D_landmarks, output_3D_landmarks, output_model_params, output_pose, output_AUs, output_gaze,
 				face_model, frame_count, time_stamp, detection_success, gazeDirection0, gazeDirection1,
-				pose_estimate, fx, fy, cx, cy, face_analyser);
+				pose_estimate, fx, fy, cx, cy, face_analyser, emotion);
 
 			// output the tracked video
 			if(!tracked_videos_output.empty())
@@ -701,6 +729,23 @@ int main (int argc, char **argv)
 			else if(character_press=='q')
 			{
 				return(0);
+			} else if (character_press=='c') {
+				switch(emotion){
+				   	case 0:
+				      system("google-chrome file:///home/z4shang/VHAdisplayFNeutral.html &");
+				      break;
+				   	case 1:
+				      system("google-chrome file:///home/z4shang/VHAdisplayFsad.html &");
+				      break;
+				    case 2:
+				      system("google-chrome file:///home/z4shang/VHAdisplayFanger.html &");
+				      break;
+				    case 3:
+				      system("google-chrome file:///home/z4shang/VHAdisplayFhappy.html &");
+				      break;
+				    default:
+				      break;
+				}
 			}
 
 			// Update the frame count
@@ -936,14 +981,17 @@ void prepareOutputFile(std::ofstream* output_file, bool output_2D_landmarks, boo
 }
 
 // Output all of the information into one file in one go (quite a few parameters, but simplifies the flow)
-void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, bool output_3D_landmarks,
+void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool output_2D_landmarks, bool output_3D_landmarks,
 	bool output_model_params, bool output_pose, bool output_AUs, bool output_gaze,
 	const LandmarkDetector::CLNF& face_model, int frame_count, double time_stamp, bool detection_success,
 	cv::Point3f gazeDirection0, cv::Point3f gazeDirection1, const cv::Vec6d& pose_estimate, double fx, double fy, double cx, double cy,
-	const FaceAnalysis::FaceAnalyser& face_analyser)
+	const FaceAnalysis::FaceAnalyser& face_analyser, int& emotion)
 {
+	//if (!detection_success) return; //***add!
 
 	double confidence = 0.5 * (1 - face_model.detection_certainty);
+
+	cout << time_stamp << " " << detection_success << " ";
 
 	*output_file << frame_count + 1 << ", " << time_stamp << ", " << confidence << ", " << detection_success;
 
@@ -1027,14 +1075,15 @@ void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, boo
 		}
 	}
 
-
-
 	if (output_AUs)
 	{
 		auto aus_reg = face_analyser.GetCurrentAUsReg();
 
 		vector<string> au_reg_names = face_analyser.GetAURegNames();
 		std::sort(au_reg_names.begin(), au_reg_names.end());
+		vector<double> au_values;
+		int idx = 0;
+		svm_node* predictX = new svm_node[TOTAL_AU + 1];
 
 		// write out ar the correct index
 		for (string au_name : au_reg_names)
@@ -1044,11 +1093,47 @@ void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, boo
 				if (au_name.compare(au_reg.first) == 0)
 				{
 					*output_file << ", " << au_reg.second;
-                                        cout << ", " <<au_reg.second;
+					cout << au_reg.second << " ";
+					if (DEMO) {
+						predictX[idx].value = au_reg.second;
+						predictX[idx].index = idx + 1;
+						idx++;
+					}
+					au_values.push_back(au_reg.second);
+                    //cout << ", " <<au_reg.second;
 					break;
 				}
 			}
 		}
+
+		/* predict EPA */
+		if (realTimePredict) {
+			vector<double> e = pca_E.to_principal_space(au_values);
+			vector<double> p = pca_P.to_principal_space(au_values);
+			vector<double> a = pca_A.to_principal_space(au_values);
+	        svm_node* newPredictE = new svm_node[Dimension + 1];
+	        svm_node* newPredictP = new svm_node[Dimension + 1];
+	        svm_node* newPredictA = new svm_node[Dimension + 1];
+
+	        for (int j = 0; j < Dimension; j++) {
+	            newPredictE[j].value = e[j];
+	            newPredictE[j].index = j + 1;
+
+	            newPredictP[j].value = p[j];
+	            newPredictP[j].index = j + 1;
+
+	            newPredictA[j].value = a[j];
+	            newPredictA[j].index = j + 1;
+	        }
+	        newPredictE[Dimension].index = -1;
+	        newPredictP[Dimension].index = -1;
+	        newPredictA[Dimension].index = -1;
+
+        	cout << "value E: " << svm_predict(model_E, newPredictE)
+            	 << "value P: " << svm_predict(model_P, newPredictP) 
+            	 << "value A: " << svm_predict(model_A, newPredictA) << endl;
+        }
+
 
 		if (aus_reg.size() == 0)
 		{
@@ -1071,10 +1156,48 @@ void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, boo
 				if (au_name.compare(au_class.first) == 0)
 				{
 					*output_file << ", " << au_class.second;
+					cout << au_class.second << " ";
+					if (DEMO) {
+						predictX[idx].value = au_class.second;
+						predictX[idx].index = idx + 1;
+						idx++;
+					}
 					break;
 				}
 			}
 		}
+		cout << endl;
+
+		if (DEMO) {
+			predictX[idx].index = -1;
+			emotion = svm_predict(model_Demo, predictX);
+			//cout << "emotion: " << emotion << endl;
+			//cout << " " << svm_predict(model_Demo, predictX) << endl;
+
+			char fpsC[255];
+			string fpsSt("");
+
+			switch(emotion){
+			   	case 0:
+			      sprintf(fpsC, "%s", "Neutral");
+			      break;
+			   	case 1:
+			      sprintf(fpsC, "%s", "Sad");
+			      break;
+			    case 2:
+			      sprintf(fpsC, "%s", "Angry");
+			      break;
+			    case 3:
+			      sprintf(fpsC, "%s", "Happy");
+			      break;
+			    default:
+			      break;
+			}
+
+			fpsSt += fpsC;
+			cv::putText(captured_image, fpsSt, cv::Point(500, 50), CV_FONT_HERSHEY_SIMPLEX, 1, CV_RGB(255, 0, 0), 1, CV_AA);
+		}
+		delete predictX;
 
 		if (aus_class.size() == 0)
 		{
@@ -1085,6 +1208,8 @@ void outputAllFeatures(std::ofstream* output_file, bool output_2D_landmarks, boo
 		}
 	}
 	*output_file << endl;
+		//cv::namedWindow("tracking_result", 1);
+	cv::imshow("tracking_result", captured_image);
 }
 
 
