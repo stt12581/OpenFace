@@ -81,6 +81,12 @@
 #include <FaceAnalyser.h>
 #include <GazeEstimation.h>
 
+#include <dlib/image_processing.h>
+#include <dlib/opencv/cv_image.h>
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/gui_widgets.h>
+#include <dlib/image_io.h>
+
 #include "pca.h"
 #include "svm.h"
 
@@ -99,6 +105,7 @@ std::cout << "Error: " << stream << std::endl
 #define realTimePredict 0
 /* For the age-well demo. Use an extra variable predictX */
 #define DEMO 0
+#define AU 0
 #define HOGCompute 1
 
 stats::pca pca_E(TOTAL_AU);
@@ -257,7 +264,7 @@ void post_process_output_file(FaceAnalysis::FaceAnalyser& face_analyser, string 
 
 int main (int argc, char **argv)
 {
-	if (realTimePredict) { //change!!
+	if (AU) { //change!!
 		pca_E.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel");
 		pca_P.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel_P");
 		pca_A.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel_A");
@@ -617,11 +624,37 @@ int main (int argc, char **argv)
 			cv::Mat sim_warped_img;
 			cv::Mat_<double> hog_descriptor;
 
+			// dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
+			// dlib::array2d<dlib::bgr_pixel> dlibImage;
+			// dlib::assign_image(dlibImage, dlib::cv_image<dlib::bgr_pixel>(captured_image));
+
+            // vector<dlib::rectangle> dets = detector(dlibImage);
+            // cv::Mat roi(captured_image, cv::Rect(dets[0].left(),dets[0].top(),dets[0].width(),dets[0].height()));
+
+            //cv:imshow("debug", roi);
+
+
 			// But only if needed in output
 			if(!output_similarity_align.empty() || hog_output_file.is_open() || output_AUs)
 			{
 				face_analyser.AddNextFrame(captured_image, face_model, time_stamp, false, !det_parameters.quiet_mode);
 				face_analyser.GetLatestAlignedFace(sim_warped_img);
+
+				if (HOGCompute) {
+					FaceAnalysis::Extract_FHOG_descriptor(hog_descriptor, sim_warped_img, num_hog_rows, num_hog_cols, 16);
+
+					cv::MatIterator_<double> descriptor_it = hog_descriptor.begin();
+					for(int y = 0; y < num_hog_cols; ++y) {
+						for(int x = 0; x < num_hog_rows; ++x) {
+							for(unsigned int o = 0; o < 31; ++o) {
+								cout << *descriptor_it++ << " ";
+							}
+						}
+					}
+					//cv::Mat_<double> hog_descriptor_vis;
+					//FaceAnalysis::Visualise_FHOG(hog_descriptor, num_hog_rows, num_hog_cols, hog_descriptor_vis);
+					//cv::imshow("hog", hog_descriptor_vis);
+				}
 
 				if(!det_parameters.quiet_mode)
 				{
@@ -729,7 +762,7 @@ int main (int argc, char **argv)
 			else if(character_press=='q')
 			{
 				return(0);
-			} else if (character_press=='c') {
+			} else if (character_press=='c' && DEMO) {
 				switch(emotion){
 				   	case 0:
 				      system("google-chrome file:///home/z4shang/VHAdisplayFNeutral.html &");
@@ -755,7 +788,7 @@ int main (int argc, char **argv)
 			{
 				if((double)frame_count/(double)total_frames >= reported_completion / 10.0)
 				{
-					cout << reported_completion * 10 << "% ";
+					//cout << reported_completion * 10 << "% ";
 					reported_completion = reported_completion + 1;
 				}
 			}
@@ -987,11 +1020,10 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 	cv::Point3f gazeDirection0, cv::Point3f gazeDirection1, const cv::Vec6d& pose_estimate, double fx, double fy, double cx, double cy,
 	const FaceAnalysis::FaceAnalyser& face_analyser, int& emotion)
 {
-	//if (!detection_success) return; //***add!
 
 	double confidence = 0.5 * (1 - face_model.detection_certainty);
 
-	cout << time_stamp << " " << detection_success << " ";
+	cout << time_stamp << " " << detection_success << endl;
 
 	*output_file << frame_count + 1 << ", " << time_stamp << ", " << confidence << ", " << detection_success;
 
@@ -1093,21 +1125,23 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				if (au_name.compare(au_reg.first) == 0)
 				{
 					*output_file << ", " << au_reg.second;
-					cout << au_reg.second << " ";
+					if (AU) {
+						cout << au_reg.second << " ";
+						au_values.push_back(au_reg.second);
+					}
 					if (DEMO) {
 						predictX[idx].value = au_reg.second;
 						predictX[idx].index = idx + 1;
 						idx++;
 					}
-					au_values.push_back(au_reg.second);
-                    //cout << ", " <<au_reg.second;
+					
 					break;
 				}
 			}
 		}
 
 		/* predict EPA */
-		if (realTimePredict) {
+		if (AU) {
 			vector<double> e = pca_E.to_principal_space(au_values);
 			vector<double> p = pca_P.to_principal_space(au_values);
 			vector<double> a = pca_A.to_principal_space(au_values);
@@ -1156,7 +1190,10 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				if (au_name.compare(au_class.first) == 0)
 				{
 					*output_file << ", " << au_class.second;
-					cout << au_class.second << " ";
+					if (AU) {
+						cout << au_class.second << " ";
+						au_values.push_back(au_class.second);
+					}
 					if (DEMO) {
 						predictX[idx].value = au_class.second;
 						predictX[idx].index = idx + 1;
@@ -1166,7 +1203,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				}
 			}
 		}
-		cout << endl;
+		//cout << endl;
 
 		if (DEMO) {
 			predictX[idx].index = -1;

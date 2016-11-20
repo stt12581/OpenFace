@@ -9,14 +9,15 @@
 #include <unordered_set>
 #include "pca.h"
 
-//#define TOTAL_NUM 910574 // get from get_total_num() - remove every first line
-#define TOTAL_AU 17
+#define TOTAL_AU 775//35
 #define Dimension 3
-#define TRAIN_DIR "./data/input/train"
-#define TRAIN_OUTPUT_DIR "./data/output/train/DP"
-#define TEST_DIR "./data/input/test"
-#define TEST_OUTPUT_DIR "./data/output/test/DP"
+#define TRAIN_DIR "./data/HOG/input/train"
+#define TRAIN_OUTPUT_DIR "./data/output/train/DV"
+#define TEST_DIR "./data/HOG/input/validation"
+#define TEST_OUTPUT_DIR "./data/output/validation/DV"
+
 using namespace std;
+#define TYPE 1 // 0:AU, 1:HOG
 
 struct svm_parameter param;
 struct svm_problem prob;
@@ -46,22 +47,38 @@ void get_total_num() {
             input.open(name);
             string iline;
             if (input.is_open()) {
-                getline(input, iline);
+                for (int i = 0; i < 31; i++)
+                    getline(input, iline);
 
                 while (getline(input, iline)) {
                     istringstream iss(iline);
 
-                    float time;
-                    string temp;
-                    iss >> temp >> time >> temp;
-                    iss >> temp;
-                    int success = 0;
-                    iss >> success;
-                    count++;
-                    if (!success || abs(time - 0) < 0.01) { //invalid data
-                        continue;
-                    } else {
-                        total++;
+                    if (TYPE == 0) {
+                        double time;
+                        iss >> time;
+                        int success = 0;
+                        iss >> success;
+                        count++;
+                        if (!success || abs(time - 0) < 0.01) { //invalid data
+                            continue;
+                        } else {
+                            total++;
+                        }
+                    } else if (TYPE == 1) {
+                        double num;
+                        for (int i = 0; i < TOTAL_AU; i++)
+                            iss >> num;
+
+                        double time;
+                        iss >> time;
+                        int success = 0;
+                        iss >> success;
+                        count++;
+                        if (!success || abs(time - 0) < 0.01) { //invalid data
+                            continue;
+                        } else {
+                            total++;
+                        }
                     }
                 }
                 input.close();
@@ -134,35 +151,53 @@ void set_pca() {
 
             if (input.is_open()) {
                 timeFrame.clear();
-                getline(input, iline);
+                for (int i = 0; i < 31; i++)
+                    getline(input, iline);
 
                 while (getline(input, iline)) {
                     istringstream iss(iline);
 
                     vector<double> record(TOTAL_AU);
-                    float time;
+                    double time;
                     string temp;
-                    iss >> temp >> time >> temp;
-                    iss >> temp;
                     int success = 0;
-                    iss >> success;
-                    total++;
-                    if (!success || abs(time - 0) < 0.01) { //invalid data
-                        continue;
-                    } else {
-                        ostringstream oss;
-                        oss << std::fixed << std::setfill('0') << setprecision(2) << time;
 
-                        //cout << "input time : [" << oss.str() << "]"<< endl; 
-                        timeFrame.insert(oss.str());
-                        in++;
-                    }
+                    if (TYPE == 0) {
+                        iss >> time;
+                        iss >> success;
+                        total++;
+                        if (!success || abs(time - 0) < 0.01) { //invalid data
+                            continue;
+                        } else {
+                            ostringstream oss;
+                            oss << std::fixed << std::setfill('0') << setprecision(2) << time;
 
-                    for (int la = 0; la < 393; la++)
-                        iss >> temp;
-                    for (int j = 0; j < TOTAL_AU; j++) {
-                        char c;
-                        iss >> record[j] >> c;
+                            //cout << "input time : [" << oss.str() << "]"<< endl; 
+                            timeFrame.insert(oss.str());
+                            in++;
+                        }
+
+                        for (int j = 0; j < TOTAL_AU; j++) {
+                            iss >> record[j];
+                        }
+                    } else if (TYPE == 1) {
+                        for (int j = 0; j < TOTAL_AU; j++) {
+                            iss >> record[j];
+                        }
+
+                        iss >> time;
+                        iss >> success;
+                        total++;
+                        if (!success || abs(time - 0) < 0.01) { //invalid data
+                            continue;
+                        } else {
+                            ostringstream oss;
+                            oss << std::fixed << std::setfill('0') << setprecision(2) << time;
+
+                            //cout << "input time : [" << oss.str() << "]"<< endl; 
+                            timeFrame.insert(oss.str());
+                            in++;
+                        }
                     }
                     pca.add_record(record);
                 }
@@ -235,7 +270,8 @@ void predict() {
 
             if (input.is_open()) {
                 timeFrame.clear();
-                getline(input, iline);
+                for (int i = 0; i < 31; i++)
+                    getline(input, iline);
 
                 while (getline(input, iline)) {
                     istringstream iss(iline);
@@ -243,27 +279,44 @@ void predict() {
 
                     float time;
                     string temp;
-                    iss >> temp >> time >> temp;
-                    iss >> temp;
                     int success = 0;
-                    iss >> success;
-                    total++;
-                    if (!success || abs(time - 0) < 0.01) { //invalid data
-                        continue;
-                    } else {
-                        ostringstream oss;
-                        oss << std::fixed << std::setfill('0') << setprecision(2) << time;
 
-                        //cout << "input time : [" << oss.str() << "]"<< endl; 
-                        timeFrame.insert(oss.str());
-                        in++;
-                    }
+                    if (TYPE == 0) {
+                        iss >> time;
+                        iss >> success;
+                        total++;
+                        if (!success || abs(time - 0) < 0.01) { //invalid data
+                            continue;
+                        } else {
+                            ostringstream oss;
+                            oss << std::fixed << std::setfill('0') << setprecision(2) << time;
 
-                    for (int la = 0; la < 393; la++)
-                        iss >> temp;
-                    for (int j = 0; j < TOTAL_AU; j++) {
-                        char c;
-                        iss >> predictX[j] >> c;
+                            //cout << "input time : [" << oss.str() << "]"<< endl; 
+                            timeFrame.insert(oss.str());
+                            in++;
+                        }
+
+                        for (int j = 0; j < TOTAL_AU; j++) {
+                            iss >> predictX[j];
+                        }
+                    } else if (TYPE == 1) {
+                        for (int j = 0; j < TOTAL_AU; j++) {
+                            iss >> predictX[j];
+                        }
+
+                        iss >> time;
+                        iss >> success;
+                        total++;
+                        if (!success || abs(time - 0) < 0.01) { //invalid data
+                            continue;
+                        } else {
+                            ostringstream oss;
+                            oss << std::fixed << std::setfill('0') << setprecision(2) << time;
+
+                            //cout << "input time : [" << oss.str() << "]"<< endl; 
+                            timeFrame.insert(oss.str());
+                            in++;
+                        }
                     }
 
                     vector<double> newPredict = pca.to_principal_space(predictX);
@@ -314,22 +367,22 @@ void predict() {
 
 int main() {
     clock_t begin = clock();
-    // get_total_num();
-    // set_pca();
-    // read_problem();
-    // set_param();
-    // cout << "Training model ..."<<endl;
-    // model = svm_train(&prob, &param);
-    // cout << "After training. Predicting ..." <<endl;
+    get_total_num();
+    set_pca();
+    pca.save("PCAModel_V");
+    read_problem();
+    set_param();
+    cout << "Training model ..."<<endl;
+    model = svm_train(&prob, &param);
+    cout << "After training. Predicting ..." <<endl;
     
-    // if (svm_save_model("SVMModel_P", model) != 0) {
-    //     cout << "Failed to save the model :(" << endl;
-    // }
-    // pca.save("PCAModel_P");
+    if (svm_save_model("SVMModel_V", model) != 0) {
+        cout << "Failed to save the model :(" << endl;
+    }
     
-
-    pca.load("PCAModel_P");
-    model = svm_load_model("SVMModel_P");
+    
+    // pca.load("PCAModel_V");
+    // model = svm_load_model("SVMModel_V");
     predict();
     svm_destroy_param(&param);
     delete prob.y;
