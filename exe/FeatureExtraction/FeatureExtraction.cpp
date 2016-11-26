@@ -100,13 +100,14 @@ std::cout << "Warning: " << stream << std::endl
 #define ERROR_STREAM( stream ) \
 std::cout << "Error: " << stream << std::endl
 
-#define TOTAL_AU 35
+#define TOTAL_AU 17
 #define Dimension 3
 #define realTimePredict 0
 /* For the age-well demo. Use an extra variable predictX */
 #define DEMO 0
 #define AU 0
-#define HOGCompute 1
+#define HOGCompute 0
+#define AUGenerateInput 1
 
 stats::pca pca_E(TOTAL_AU);
 stats::pca pca_P(TOTAL_AU);
@@ -637,7 +638,7 @@ int main (int argc, char **argv)
 			// But only if needed in output
 			if(!output_similarity_align.empty() || hog_output_file.is_open() || output_AUs)
 			{
-				face_analyser.AddNextFrame(captured_image, face_model, time_stamp, false, !det_parameters.quiet_mode);
+				face_analyser.AddNextFrame(captured_image, face_model, time_stamp, true, !det_parameters.quiet_mode); //*** need chagne it back
 				face_analyser.GetLatestAlignedFace(sim_warped_img);
 
 				if (HOGCompute) {
@@ -1023,7 +1024,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 
 	double confidence = 0.5 * (1 - face_model.detection_certainty);
 
-	cout << time_stamp << " " << detection_success << endl;
+	cout << time_stamp << " " << detection_success << " ";
 
 	*output_file << frame_count + 1 << ", " << time_stamp << ", " << confidence << ", " << detection_success;
 
@@ -1129,6 +1130,9 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 						cout << au_reg.second << " ";
 						au_values.push_back(au_reg.second);
 					}
+					if (AUGenerateInput) {
+						cout << au_reg.second << " ";
+					}
 					if (DEMO) {
 						predictX[idx].value = au_reg.second;
 						predictX[idx].index = idx + 1;
@@ -1203,7 +1207,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				}
 			}
 		}
-		//cout << endl;
+		cout << endl;
 
 		if (DEMO) {
 			predictX[idx].index = -1;

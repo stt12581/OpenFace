@@ -143,8 +143,12 @@ endif()
 # dlib
 include_directories(lib/3rdParty/dlib/include)
 
+#svm
+include_directories(lib/3rdParty/svm/include)
+
 # dlib library
 add_subdirectory(lib/3rdParty/dlib)
+#add_subdirectory(lib/3rdParty/svm)
 
 # LandmarkDetector library
 add_subdirectory(lib/local/LandmarkDetector)

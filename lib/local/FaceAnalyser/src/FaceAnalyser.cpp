@@ -470,7 +470,7 @@ void FaceAnalyser::AddNextFrame(const cv::Mat& frame, const LandmarkDetector::CL
 	std::vector<std::pair<std::string, double>> AU_predictions_reg_corrected;
 	if(online)
 	{
-		AU_predictions_reg_corrected = CorrectOnlineAUs(AU_predictions_reg, orientation_to_use, true, false, clnf_model.detection_success);
+		AU_predictions_reg_corrected = CorrectOnlineAUs(AU_predictions_reg, orientation_to_use, true, false, clnf_model.detection_success, true);
 	}
 
 	// Add the reg predictions to the historic data

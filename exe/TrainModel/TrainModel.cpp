@@ -9,15 +9,15 @@
 #include <unordered_set>
 #include "pca.h"
 
-#define TOTAL_AU 775//35
+#define TOTAL_AU 17//775//35
 #define Dimension 3
-#define TRAIN_DIR "./data/HOG/input/train"
-#define TRAIN_OUTPUT_DIR "./data/output/train/DV"
+#define TRAIN_DIR "/u5/z4shang/Documents/research/data/onlineAUwithFlag"
+#define TRAIN_OUTPUT_DIR "/u5/z4shang/Documents/research/data/output/DV"
 #define TEST_DIR "./data/HOG/input/validation"
 #define TEST_OUTPUT_DIR "./data/output/validation/DV"
 
 using namespace std;
-#define TYPE 1 // 0:AU, 1:HOG
+#define TYPE 0 // 0:AU, 1:HOG
 
 struct svm_parameter param;
 struct svm_problem prob;
@@ -27,10 +27,7 @@ struct dirent *epdf;
 stats::pca pca(TOTAL_AU);
 int TOTAL_NUM;
 
-vector<vector<double>> data(Dimension, vector<double>(0, TOTAL_NUM)); //convert data
-
-vector<double> eigenvector1;
-vector<double> eigenvector2;
+vector<vector<double>> data; //convert data 
 
 void get_total_num() {
     int total = 0;
@@ -87,7 +84,31 @@ void get_total_num() {
     }
     closedir(dpdf);
     TOTAL_NUM = total;
+    data = vector<vector<double>>(Dimension, vector<double>(0, TOTAL_NUM));
     cout << total << " " << count << endl;
+}
+
+void setY(unordered_set<string>& timeFrame, string fileNum, int& idx) {
+    string oline;
+    ifstream output;
+    output.open(string(TRAIN_OUTPUT_DIR) + "/S" + fileNum + "y.txt");
+
+    if (output.is_open()) {
+        while (getline(output, oline)) {
+            istringstream iss(oline);
+
+            float time;
+            iss >> time;
+            ostringstream oss;
+            oss << std::fixed << std::setfill('0') << setprecision(2) << time;
+
+            if (timeFrame.find(oss.str()) != timeFrame.end()) {
+                //iss >> prob.y[idx++];
+                idx++;
+            }
+        }
+        output.close();
+    }
 }
 
 void read_problem() {
@@ -99,31 +120,6 @@ void read_problem() {
             prob.x[i][j].index = j + 1;
         }
         prob.x[i][Dimension].index = -1;
-    }
-}
-
-void setY(unordered_set<string>& timeFrame, string fileNum, int& idx) {
-    string oline;
-    ifstream output;
-    output.open(string(TRAIN_OUTPUT_DIR) + "/S" + fileNum + "y.txt");
-
-    if (output.is_open()) {
-        while (getline(output, oline)) {
-            istringstream iss(oline);
-            //prob.x[idx][Dimension].index = -1; 
-            float time;
-            iss >> time;
-            ostringstream oss;
-            oss << std::fixed << std::setfill('0') << setprecision(2) << time;
-
-            if (timeFrame.find(oss.str()) != timeFrame.end()) {
-                iss >> prob.y[idx++];
-            } else {
-                //cout << "invalid time frame [" << oss.str() << "]" << endl;
-            }
-            //cout << prob.y[out] << endl;
-        }
-        output.close();
     }
 }
 
