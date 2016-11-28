@@ -11,9 +11,8 @@
 #include <algorithm>
 
 #define TOTAL_AU 17//775//35
-#define Dimension 3
 #define TRAIN_DIR "/u5/z4shang/Documents/research/data/onlineAUwithFlag"
-#define TRAIN_OUTPUT_DIR "/u5/z4shang/Documents/research/data/output/DV"
+#define TRAIN_OUTPUT_DIR "/u5/z4shang/Documents/research/data/output/DP"
 
 using namespace std;
 #define TYPE 0 // 0:AU, 1:HOG
@@ -138,7 +137,7 @@ void shuffleDataAndStore() {
 
 void outputData() {
 	ofstream myfile;
-	myfile.open ("inputData_DV.txt");
+	myfile.open ("inputData_DP.txt");
 	for (int i = 0; i < data.size(); i++) {
 		for (int j = 0; j < data[0].size(); j++) {
 			myfile << data[i][j] << " ";
