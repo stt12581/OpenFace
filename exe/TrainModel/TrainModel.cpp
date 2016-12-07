@@ -11,6 +11,7 @@
 
 #define TOTAL_AU 17//775//35
 #define Dimension 3
+
 #define TRAIN_DIR "/u5/z4shang/Documents/research/data/onlineAUwithFlag"
 #define TRAIN_OUTPUT_DIR "/u5/z4shang/Documents/research/data/output/DV"
 #define TEST_DIR "./data/HOG/input/validation"
@@ -86,6 +87,18 @@ void get_total_num() {
     TOTAL_NUM = total;
     data = vector<vector<double>>(Dimension, vector<double>(0, TOTAL_NUM));
     cout << total << " " << count << endl;
+}
+
+void read_problem() {
+    cout<<"Reading problem ..."<<endl;
+    for (int i = 0; i < data[0].size(); i++) {
+        prob.x[i] = new svm_node[Dimension + 1];
+        for (int j = 0; j < data.size(); j++) {
+            prob.x[i][j].value = data[j][i];
+            prob.x[i][j].index = j + 1;
+        }
+        prob.x[i][Dimension].index = -1;
+    }
 }
 
 void setY(unordered_set<string>& timeFrame, string fileNum, int& idx) {
@@ -243,7 +256,7 @@ void set_param() {
 }
 
 void predict() {
-    double result;
+    double result = 0;
     int in = 0, total = 0;
     ifstream input, output;
     unordered_set<string> timeFrame;
@@ -326,6 +339,7 @@ void predict() {
                     newPredictX[Dimension].index = -1;
                     //cout << svm_predict(model, newPredictX) << endl;
                     predictY.push_back(svm_predict(model, newPredictX));
+                    delete newPredictX;
                 }
                 input.close();
             }
@@ -363,25 +377,29 @@ void predict() {
 
 int main() {
     clock_t begin = clock();
-    get_total_num();
-    set_pca();
-    pca.save("PCAModel_V");
-    read_problem();
-    set_param();
-    cout << "Training model ..."<<endl;
-    model = svm_train(&prob, &param);
-    cout << "After training. Predicting ..." <<endl;
+    // get_total_num();
+    // set_pca();
+    // pca.save("PCAModel_A");
+
+    // read_problem();
+    // set_param();
+    // cout << "Training model ..."<<endl;
+    // model = svm_train(&prob, &param);
+    // cout << "After training. Predicting ..." <<endl;
     
-    if (svm_save_model("SVMModel_V", model) != 0) {
-        cout << "Failed to save the model :(" << endl;
-    }
+    // if (svm_save_model("SVMModel_A", model) != 0) {
+    //     cout << "Failed to save the model :(" << endl;
+    // }
     
+    pca.load("PCAModel_V");
+    model = svm_load_model("SVMModel_V");
     
-    // pca.load("PCAModel_V");
-    // model = svm_load_model("SVMModel_V");
     predict();
     svm_destroy_param(&param);
     delete prob.y;
+    for (int i = 0; i < data[0].size(); i++) {
+        delete prob.x[i];
+    }
     delete prob.x;
     cout << "Time elasped: " << double(clock() - begin) / CLOCKS_PER_SEC << endl;
     return 0;

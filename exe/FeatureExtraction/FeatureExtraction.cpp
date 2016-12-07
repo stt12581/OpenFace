@@ -100,11 +100,11 @@ std::cout << "Warning: " << stream << std::endl
 #define ERROR_STREAM( stream ) \
 std::cout << "Error: " << stream << std::endl
 
-#define TOTAL_AU 17
+#define TOTAL_AU 35
 #define Dimension 3
-#define realTimePredict 0
+#define realTimePredict 1
 /* For the age-well demo. Use an extra variable predictX */
-#define DEMO 0
+#define DEMO 1
 #define AU 0
 #define HOGCompute 1
 #define FHOGCompute 0
@@ -118,7 +118,11 @@ struct svm_model *model_P;
 struct svm_model *model_A;
 struct svm_model *model_Demo;
 
+
 dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
+
+queue<int> emotionQ;
+vector<int> emotionCounter(4, 0);
 
 static void printErrorAndAbort( const std::string & error )
 {
@@ -269,16 +273,16 @@ void post_process_output_file(FaceAnalysis::FaceAnalyser& face_analyser, string 
 int main (int argc, char **argv)
 {
 	if (AU) { //change!!
-		pca_E.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel");
-		pca_P.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel_P");
-		pca_A.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/PCAModel_A");
-	    model_E = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/SVMModel");
-	    model_P = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/SVMModel_P");
-    	model_A = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/SVMModel_A");
+		pca_E.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/onlineAUModels/PCAModel_V");
+		pca_P.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/onlineAUModels/PCAModel_P");
+		pca_A.load("/home/z4shang/Documents/OpenFace/exe/TrainModel/onlineAUModels/PCAModel_A");
+	    model_E = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/onlineAUModels/SVMModel_V");
+	    model_P = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/onlineAUModels/SVMModel_P");
+    	model_A = svm_load_model("/home/z4shang/Documents/OpenFace/exe/TrainModel/onlineAUModels/SVMModel_A");
 	}
 
 	if (DEMO) {
-		model_Demo = svm_load_model("/home/z4shang/Documents/OpenFace/exe/testNoPCA/SVMModel_Demo");
+		model_Demo = svm_load_model("/home/z4shang/Documents/OpenFace/exe/DemoNoPCA/SVMModel_Demo");
 	}
 
 	vector<string> arguments = get_arguments(argc, argv);
@@ -1038,7 +1042,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 
 	double confidence = 0.5 * (1 - face_model.detection_certainty);
 
-	cout << time_stamp << " " << detection_success << " ";
+	//cout << time_stamp << " " << detection_success << " ";
 
 	*output_file << frame_count + 1 << ", " << time_stamp << ", " << confidence << ", " << detection_success;
 
@@ -1141,7 +1145,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				{
 					*output_file << ", " << au_reg.second;
 					if (AU) {
-						cout << au_reg.second << " ";
+						//cout << au_reg.second << " ";
 						au_values.push_back(au_reg.second);
 					}
 					if (AUGenerateInput) {
@@ -1157,6 +1161,42 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				}
 			}
 		}
+
+		if (aus_reg.size() == 0)
+		{
+			for (size_t p = 0; p < face_analyser.GetAURegNames().size(); ++p)
+			{
+				*output_file << ", 0";
+			}
+		}
+
+		auto aus_class = face_analyser.GetCurrentAUsClass();
+
+		vector<string> au_class_names = face_analyser.GetAUClassNames();
+		std::sort(au_class_names.begin(), au_class_names.end());
+
+		// write out ar the correct index
+		for (string au_name : au_class_names)
+		{
+			for (auto au_class : aus_class)
+			{
+				if (au_name.compare(au_class.first) == 0)
+				{
+					*output_file << ", " << au_class.second;
+					if (AU) {
+						//cout << au_class.second << " ";
+						au_values.push_back(au_class.second);
+					}
+					if (DEMO) {
+						predictX[idx].value = au_class.second;
+						predictX[idx].index = idx + 1;
+						idx++;
+					}
+					break;
+				}
+			}
+		}
+		//cout << endl;
 
 		/* predict EPA */
 		if (AU) {
@@ -1186,46 +1226,25 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
             	 << "value A: " << svm_predict(model_A, newPredictA) << endl;
         }
 
-
-		if (aus_reg.size() == 0)
-		{
-			for (size_t p = 0; p < face_analyser.GetAURegNames().size(); ++p)
-			{
-				*output_file << ", 0";
-			}
-		}
-
-		auto aus_class = face_analyser.GetCurrentAUsClass();
-
-		vector<string> au_class_names = face_analyser.GetAUClassNames();
-		std::sort(au_class_names.begin(), au_class_names.end());
-
-		// write out ar the correct index
-		for (string au_name : au_class_names)
-		{
-			for (auto au_class : aus_class)
-			{
-				if (au_name.compare(au_class.first) == 0)
-				{
-					*output_file << ", " << au_class.second;
-					if (AU) {
-						cout << au_class.second << " ";
-						au_values.push_back(au_class.second);
-					}
-					if (DEMO) {
-						predictX[idx].value = au_class.second;
-						predictX[idx].index = idx + 1;
-						idx++;
-					}
-					break;
-				}
-			}
-		}
-		cout << endl;
-
 		if (DEMO) {
 			predictX[idx].index = -1;
 			emotion = svm_predict(model_Demo, predictX);
+
+			emotionCounter[emotion]++;
+			emotionQ.push(emotion);
+			if (emotionQ.size() >= 5) {
+				emotionCounter[emotionQ.front()]--;
+				emotionQ.pop();
+			}
+			
+			int max = 0;
+			emotion = 0;
+			for (int i = 0; i < emotionCounter.size(); i++) {
+				if (emotionCounter[i] > max) {
+					emotion = i;
+					max = emotionCounter[i];
+				}
+			}
 			//cout << "emotion: " << emotion << endl;
 			//cout << " " << svm_predict(model_Demo, predictX) << endl;
 

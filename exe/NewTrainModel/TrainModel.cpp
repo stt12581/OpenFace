@@ -10,6 +10,7 @@
 #include "pca.h"
 
 #define TOTAL_AU 17//775//35
+
 #define INPUT_FILE "/u5/z4shang/Documents/research/data/inputSelectedData/train_DA"
 #define TEST_FILE "/u5/z4shang/Documents/research/data/inputSelectedData/test_DA"
 //#define INPUT_FILE "./onlineAUwithFlag_shuffle_DA"
@@ -21,7 +22,7 @@ struct svm_parameter param;
 struct svm_problem prob;
 struct svm_model *model;
 int TOTAL_NUM;
-int Dimension;//3
+int Dimension = 7;
 
 void get_total_num() {
     int total = 0;
@@ -37,7 +38,50 @@ void get_total_num() {
     }
 
     TOTAL_NUM = total;
-    //data = vector<vector<double>>(TOTAL_AU, vector<double>(0, TOTAL_NUM));
+}
+
+void set_pca() {
+    stats::pca pca(TOTAL_AU);
+    vector<double> y(TOTAL_NUM, 0);
+    vector<vector<double>> data(Dimension, vector<double>(TOTAL_NUM, 0));
+
+    pca.set_do_bootstrap(true, 100);
+    string iline;
+    int idx = 0;
+    ifstream input;
+    input.open(string(INPUT_FILE) + ".txt");
+    if (input.is_open()) {
+        while (getline(input, iline)) {
+            istringstream iss(iline);
+            vector<double> record(TOTAL_AU);
+
+            for (int j = 0; j < TOTAL_AU; j++) {
+                iss >> record[j];
+            }
+            iss >> y[idx];
+            idx++;
+            pca.add_record(record);
+        }
+        input.close();
+    }
+
+    cout << "PCA solving ..." << endl;
+    pca.solve();
+
+    for (int i = 0; i < Dimension; i++) {
+        data[i] = pca.get_principal(i);
+    }
+    pca.set_num_retained(Dimension);
+
+    ofstream trainFile;
+    trainFile.open ("./data/DV_PCA.txt");
+    for (int i = 0; i < TOTAL_NUM; i++) {
+        for (int j = 0; j < Dimension; j++) {
+            trainFile << data[j][i] << " ";
+        }
+        trainFile << y[i] << endl;
+    }
+    trainFile.close();
 }
 
 void read_problem() {
@@ -45,7 +89,6 @@ void read_problem() {
     prob.l = TOTAL_NUM;
     prob.y = new double[TOTAL_NUM];
     prob.x = new svm_node*[TOTAL_NUM]; 
-    Dimension = TOTAL_AU;
 
     string iline;
     ifstream input;
@@ -126,11 +169,16 @@ void predict() {
 int main(int argc, char* argv[]) {
     clock_t begin = clock();
     get_total_num();
+
+    //set_pca();
     read_problem();
     set_param(argv[1], argv[2], argv[3]);
 
     cout << "Training model ..."<<endl;
-    model = svm_train(&prob, &param);
+
+    double *target = new double[TOTAL_NUM];
+    svm_cross_validation(&prob, &param, 4, target);
+    //model = svm_train(&prob, &param);
     cout << "After training. Predicting ..." <<endl;
 
     if (svm_save_model("SVMModel_A", model) != 0) {
