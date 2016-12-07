@@ -106,8 +106,9 @@ std::cout << "Error: " << stream << std::endl
 /* For the age-well demo. Use an extra variable predictX */
 #define DEMO 0
 #define AU 0
-#define HOGCompute 0
-#define AUGenerateInput 1
+#define HOGCompute 1
+#define FHOGCompute 0
+#define AUGenerateInput 0
 
 stats::pca pca_E(TOTAL_AU);
 stats::pca pca_P(TOTAL_AU);
@@ -116,6 +117,8 @@ struct svm_model *model_E;
 struct svm_model *model_P;
 struct svm_model *model_A;
 struct svm_model *model_Demo;
+
+dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
 
 static void printErrorAndAbort( const std::string & error )
 {
@@ -625,24 +628,14 @@ int main (int argc, char **argv)
 			cv::Mat sim_warped_img;
 			cv::Mat_<double> hog_descriptor;
 
-			// dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
-			// dlib::array2d<dlib::bgr_pixel> dlibImage;
-			// dlib::assign_image(dlibImage, dlib::cv_image<dlib::bgr_pixel>(captured_image));
-
-            // vector<dlib::rectangle> dets = detector(dlibImage);
-            // cv::Mat roi(captured_image, cv::Rect(dets[0].left(),dets[0].top(),dets[0].width(),dets[0].height()));
-
-            //cv:imshow("debug", roi);
-
-
 			// But only if needed in output
 			if(!output_similarity_align.empty() || hog_output_file.is_open() || output_AUs)
 			{
 				face_analyser.AddNextFrame(captured_image, face_model, time_stamp, true, !det_parameters.quiet_mode); //*** need chagne it back
 				face_analyser.GetLatestAlignedFace(sim_warped_img);
 
-				if (HOGCompute) {
-					FaceAnalysis::Extract_FHOG_descriptor(hog_descriptor, sim_warped_img, num_hog_rows, num_hog_cols, 16);
+				if (FHOGCompute) {
+					FaceAnalysis::Extract_FHOG_descriptor(hog_descriptor, sim_warped_img, num_hog_rows, num_hog_cols, 8);
 
 					cv::MatIterator_<double> descriptor_it = hog_descriptor.begin();
 					for(int y = 0; y < num_hog_cols; ++y) {
@@ -652,10 +645,31 @@ int main (int argc, char **argv)
 							}
 						}
 					}
+					cout << endl;
 					//cv::Mat_<double> hog_descriptor_vis;
 					//FaceAnalysis::Visualise_FHOG(hog_descriptor, num_hog_rows, num_hog_cols, hog_descriptor_vis);
 					//cv::imshow("hog", hog_descriptor_vis);
 				}
+
+				if (HOGCompute) {
+					// dlib::array2d<dlib::bgr_pixel> dlibImage;
+					// dlib::assign_image(dlibImage, dlib::cv_image<dlib::bgr_pixel>(captured_image));
+
+		            // vector<dlib::rectangle> dets = detector(dlibImage);
+		            // cv::Mat roi(captured_image, cv::Rect(dets[0].left(),dets[0].top(),dets[0].width(),dets[0].height()));
+
+		            // cv:imshow("debug", roi);
+
+		            cv::HOGDescriptor d(cv::Size(64,64), cv::Size(32,32), cv::Size(16,16), cv::Size(16,16), 9);
+  					vector<float> descriptorsValues;
+  					d.compute(sim_warped_img, descriptorsValues);
+  					for (int i = 0; i < descriptorsValues.size(); i++) {
+  						cout << descriptorsValues[i] << " ";
+  					}
+  					cout << endl;
+  					//cout << descriptorsValues.size() << endl;
+				}
+
 
 				if(!det_parameters.quiet_mode)
 				{

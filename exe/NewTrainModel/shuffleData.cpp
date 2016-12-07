@@ -10,12 +10,12 @@
 #include <vector>
 #include <algorithm>
 
-#define TOTAL_AU 17//775//35
-#define TRAIN_DIR "/u5/z4shang/Documents/research/data/onlineAUwithFlag"
-#define TRAIN_OUTPUT_DIR "/u5/z4shang/Documents/research/data/output/DP"
+#define DIMENSION 4464//775//35
+#define TRAIN_DIR "/u5/z4shang/Documents/research/data/FHOG"
+#define TRAIN_OUTPUT_DIR "/u5/z4shang/Documents/research/data/output/DA"
 
 using namespace std;
-#define TYPE 0 // 0:AU, 1:HOG
+#define TYPE 1 // 0:AU, 1:HOG
 
 DIR *dpdf;
 struct dirent *epdf;
@@ -38,7 +38,7 @@ void setY(string fileNum, int& idx, unordered_map<string, int>& timeStamp) {
             if (timeStamp.find(oss.str()) != timeStamp.end()) {
                 //iss >> prob.y[idx++];
                 double y;
-                iss >> data[timeStamp[oss.str()]][TOTAL_AU];
+                iss >> data[timeStamp[oss.str()]][DIMENSION];
                 idx++;
             }
         }
@@ -69,17 +69,17 @@ void shuffleDataAndStore() {
                     getline(input, iline);
 
                 while (getline(input, iline)) {
-                	vector<double> record(TOTAL_AU + 1);
+                	vector<double> record(DIMENSION + 1);
                     istringstream iss(iline); 
                     double time;
-                    string temp, inputTime;
+                    string inputTime;
                     int success = 0;
 
                     if (TYPE == 0) {
                         iss >> time;
                         iss >> success;
                         total++;
-                        if (!success || time - 0 < 0.01) { //invalid data
+                        if (!success || time - 0 < 0.01 || total % 20 != 0) { //invalid data
                             continue;
                         } else {
                             ostringstream oss;
@@ -91,29 +91,32 @@ void shuffleDataAndStore() {
                             in++;
                         }
 
-                        for (int j = 0; j < TOTAL_AU; j++) {
+                        for (int j = 0; j < DIMENSION; j++) {
                             iss >> record[j];
                         }
                         data.push_back(record);
                         timeStamp[inputTime] = data.size() - 1;
-                    } else if (TYPE == 1) { // change!!!!!
-                        for (int j = 0; j < TOTAL_AU; j++) {
-                            iss >> record[j];
-                        }
-
-                        iss >> time;
-                        iss >> success;
+                    } else if (TYPE == 1) {
+                        string iline2 = "";
+                        getline(input, iline2);
+                        istringstream iss2(iline2);
+                        iss2 >> time;
+                        iss2 >> success;
                         total++;
-                        if (!success || time - 0 < 0.01) { //invalid data
+                        if (!success || time - 0 < 0.01 || total % 20 != 0) { //invalid data
                             continue;
                         } else {
                             ostringstream oss;
                             oss << std::fixed << std::setfill('0') << setprecision(2) << time;
-
-                            //cout << "input time : [" << oss.str() << "]"<< endl; 
-                            //timeFrame.insert(oss.str());
+                            inputTime = oss.str();
                             in++;
                         }
+
+                        for (int j = 0; j < DIMENSION; j++) {
+                            iss >> record[j];
+                        }
+                        data.push_back(record);
+                        timeStamp[inputTime] = data.size() - 1;
                     }
                 }
                 input.close();
@@ -137,7 +140,7 @@ void shuffleDataAndStore() {
 
 void outputData() {
 	ofstream myfile;
-	myfile.open ("inputData_DP.txt");
+	myfile.open ("inputSelectedData_DA.txt");
 	for (int i = 0; i < data.size(); i++) {
 		for (int j = 0; j < data[0].size(); j++) {
 			myfile << data[i][j] << " ";
