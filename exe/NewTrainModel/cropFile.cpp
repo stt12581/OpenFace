@@ -3,8 +3,8 @@
 #include <string>
 #include <sstream>
 
-#define TOTAL_NUM 1258
-#define INPUT_FILE "/u5/z4shang/Documents/research/data/onlineAUwithFlag_shuffle_DV"
+#define TOTAL_NUM 12584
+#define INPUT_FILE "./data/data_DA_PCA"
 
 using namespace std;
 
@@ -15,9 +15,10 @@ int main() {
 
     int count = 0;
     ofstream trainFile;
-	trainFile.open ("trainSubData_DV.txt");
+	trainFile.open ("./data/trainSubData_DA_PCA.txt");
 
     if (input.is_open()) {
+        cout << "ga" << endl;
         while (getline(input, iline) && count < TOTAL_NUM) {
             trainFile << iline;
             trainFile << endl;

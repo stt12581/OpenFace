@@ -100,14 +100,14 @@ std::cout << "Warning: " << stream << std::endl
 #define ERROR_STREAM( stream ) \
 std::cout << "Error: " << stream << std::endl
 
-#define TOTAL_AU 17
+#define TOTAL_AU 35
 #define Dimension 3
 #define realTimePredict 1
 /* For the age-well demo. Use an extra variable predictX */
-#define DEMO 0
+#define DEMO 1
 #define AU 0
 #define HOGCompute 0
-#define AUGenerateInput 1
+#define AUGenerateInput 0
 
 stats::pca pca_E(TOTAL_AU);
 stats::pca pca_P(TOTAL_AU);
@@ -116,6 +116,9 @@ struct svm_model *model_E;
 struct svm_model *model_P;
 struct svm_model *model_A;
 struct svm_model *model_Demo;
+
+queue<int> emotionQ;
+vector<int> emotionCounter(4, 0);
 
 static void printErrorAndAbort( const std::string & error )
 {
@@ -275,7 +278,7 @@ int main (int argc, char **argv)
 	}
 
 	if (DEMO) {
-		model_Demo = svm_load_model("/home/z4shang/Documents/OpenFace/exe/testNoPCA/SVMModel_Demo");
+		model_Demo = svm_load_model("/home/z4shang/Documents/OpenFace/exe/DemoNoPCA/SVMModel_Demo");
 	}
 
 	vector<string> arguments = get_arguments(argc, argv);
@@ -1024,7 +1027,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 
 	double confidence = 0.5 * (1 - face_model.detection_certainty);
 
-	cout << time_stamp << " " << detection_success << " ";
+	//cout << time_stamp << " " << detection_success << " ";
 
 	*output_file << frame_count + 1 << ", " << time_stamp << ", " << confidence << ", " << detection_success;
 
@@ -1178,7 +1181,7 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 				}
 			}
 		}
-		cout << endl;
+		//cout << endl;
 
 		/* predict EPA */
 		if (AU) {
@@ -1211,6 +1214,22 @@ void outputAllFeatures(cv::Mat& captured_image, std::ofstream* output_file, bool
 		if (DEMO) {
 			predictX[idx].index = -1;
 			emotion = svm_predict(model_Demo, predictX);
+
+			emotionCounter[emotion]++;
+			emotionQ.push(emotion);
+			if (emotionQ.size() >= 5) {
+				emotionCounter[emotionQ.front()]--;
+				emotionQ.pop();
+			}
+			
+			int max = 0;
+			emotion = 0;
+			for (int i = 0; i < emotionCounter.size(); i++) {
+				if (emotionCounter[i] > max) {
+					emotion = i;
+					max = emotionCounter[i];
+				}
+			}
 			//cout << "emotion: " << emotion << endl;
 			//cout << " " << svm_predict(model_Demo, predictX) << endl;
 

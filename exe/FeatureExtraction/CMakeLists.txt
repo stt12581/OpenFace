@@ -7,7 +7,7 @@ include_directories(${Boost_INCLUDE_DIR})
 #include_directories(~/libpca/include)
 #link_directories(~/libpca/lib)
 
-add_executable(FeatureExtraction ../../lib/3rdParty/svm/src/svm.cpp FeatureExtraction.cpp)
+add_executable(FeatureExtraction svm.cpp FeatureExtraction.cpp)
 
 # Local libraries
 include_directories(${LandmarkDetector_SOURCE_DIR}/include)
